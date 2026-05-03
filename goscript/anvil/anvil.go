@@ -11,11 +11,6 @@ import (
 	"github.com/lmittmann/w3/module/eth"
 )
 
-const (
-	anvilPort = 8545
-	anvilRPC  = "http://localhost:8545"
-)
-
 // ─── Anvil ────────────────────────────────────────────────────
 
 type AnvilInstance struct {
@@ -23,12 +18,13 @@ type AnvilInstance struct {
 	Cmd    *exec.Cmd
 	RPC    string
 	Client *w3.Client
+	Signer Signer
 }
 
 func startAnvil(forkURL string, blockNumber uint64, port int) (*AnvilInstance, error) {
 	cmd := exec.Command("anvil",
 		"--fork-url", forkURL,
-		"--fork-block-number", fmt.Sprintf("%d", blockNumber-1), // juste avant la liquidation
+		"--fork-block-number", fmt.Sprintf("%d", blockNumber), // juste avant la liquidation
 		"--port", fmt.Sprintf("%d", port),
 		"--no-mining", // mining manuel = contrôle total
 		"--silent",
@@ -51,7 +47,7 @@ func startAnvil(forkURL string, blockNumber uint64, port int) (*AnvilInstance, e
 	return &AnvilInstance{
 		Port:   port,
 		Cmd:    cmd,
-		RPC:    anvilRPC,
+		RPC:    rpc,
 		Client: client,
 	}, nil
 }
