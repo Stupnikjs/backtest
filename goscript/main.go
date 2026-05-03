@@ -24,5 +24,7 @@ func main() {
 		)
 		// fork then simulate liquidation with contract
 
+ // filter les marché liquide uniswap v3
+
 	}
 }
