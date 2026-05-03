@@ -29,8 +29,16 @@ type TxParams struct {
 	Value    *big.Int
 }
 
+type MarketContractParams struct {
+	LoanToken       common.Address
+	CollateralToken common.Address
+	Oracle          common.Address
+	Irm             common.Address
+	Lltv            *big.Int
+}
+
 type LiquidateArgs struct {
-	MarketParams interface{}
+	MarketParams MarketContractParams
 	Borrower     common.Address
 	SeizedAssets *big.Int
 	RepaidShares *big.Int
@@ -61,6 +69,7 @@ func NewAnvilSigner(chainid int64) (*Signer, error) {
 // ── TX ───────────────────────────────────────────────────────────────────────
 
 func (a *AnvilInstance) SendSignedTx(ctx context.Context, params TxParams) (common.Hash, error) {
+	// transaction sender wallet
 	sender := crypto.PubkeyToAddress(a.Signer.key.PublicKey)
 
 	var nonce uint64
@@ -68,7 +77,8 @@ func (a *AnvilInstance) SendSignedTx(ctx context.Context, params TxParams) (comm
 	var gasEst uint64
 
 	msg := w3types.Message{
-		From:  sender,
+		From: sender,
+		// to morphoblue
 		To:    params.To,
 		Input: params.Calldata,
 		Value: params.Value,
@@ -92,7 +102,7 @@ func (a *AnvilInstance) SendSignedTx(ctx context.Context, params TxParams) (comm
 		GasFeeCap: new(big.Int).Add(gasPrice, big.NewInt(1e9)),
 	})
 
-	chainID := big.NewInt(8453) // Base, adapte selon ton fork
+	chainID := big.NewInt(a.Chainid) // Base, adapte selon ton fork
 	signer := types.LatestSignerForChainID(chainID)
 	signedTx, err := types.SignTx(tx, signer, a.Signer.key)
 	if err != nil {

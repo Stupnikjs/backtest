@@ -14,11 +14,12 @@ import (
 // ─── Anvil ────────────────────────────────────────────────────
 
 type AnvilInstance struct {
-	Port   int
-	Cmd    *exec.Cmd
-	RPC    string
-	Client *w3.Client
-	Signer Signer
+	Port    int
+	Cmd     *exec.Cmd
+	RPC     string
+	Client  *w3.Client
+	Signer  Signer
+	Chainid int64
 }
 
 func startAnvil(forkURL string, blockNumber uint64, port int) (*AnvilInstance, error) {
