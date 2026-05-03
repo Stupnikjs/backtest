@@ -11,6 +11,11 @@ import (
 	"github.com/lmittmann/w3/module/eth"
 )
 
+const (
+	anvilPort = 8545
+	anvilRPC  = "http://localhost:8545"
+)
+
 // ─── Anvil ────────────────────────────────────────────────────
 
 type AnvilInstance struct {
@@ -46,7 +51,7 @@ func startAnvil(forkURL string, blockNumber uint64, port int) (*AnvilInstance, e
 	return &AnvilInstance{
 		Port:   port,
 		Cmd:    cmd,
-		RPC:    rpc,
+		RPC:    anvilRPC,
 		Client: client,
 	}, nil
 }
@@ -56,7 +61,7 @@ func waitForAnvil(rpc string, timeout time.Duration) (*w3.Client, error) {
 	for time.Now().Before(deadline) {
 		client, err := w3.Dial(rpc)
 		if err == nil {
-			var blockNum big.Int
+			var blockNum *big.Int
 			if err := client.Call(eth.BlockNumber().Returns(&blockNum)); err == nil {
 				return client, nil
 			}
