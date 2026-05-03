@@ -29,16 +29,8 @@ type TxParams struct {
 	Value    *big.Int
 }
 
-type MarketContractParams struct {
-	LoanToken       common.Address
-	CollateralToken common.Address
-	Oracle          common.Address
-	Irm             common.Address
-	Lltv            *big.Int
-}
-
 type LiquidateArgs struct {
-	MarketParams MarketContractParams
+	MarketParams contract.MarketContractParams
 	Borrower     common.Address
 	SeizedAssets *big.Int
 	RepaidShares *big.Int

@@ -22,9 +22,9 @@ type AnvilInstance struct {
 	Chainid int64
 }
 
-func startAnvil(forkURL string, blockNumber uint64, port int) (*AnvilInstance, error) {
+func StartAnvil(rpc string, blockNumber uint64, port int) (*AnvilInstance, error) {
 	cmd := exec.Command("anvil",
-		"--fork-url", forkURL,
+		"--fork-url", rpc,
 		"--fork-block-number", fmt.Sprintf("%d", blockNumber), // juste avant la liquidation
 		"--port", fmt.Sprintf("%d", port),
 		"--no-mining", // mining manuel = contrôle total
@@ -38,7 +38,7 @@ func startAnvil(forkURL string, blockNumber uint64, port int) (*AnvilInstance, e
 	}
 
 	// Attendre qu'Anvil soit prêt
-	rpc := fmt.Sprintf("http://localhost:%d", port)
+	forkUrl := fmt.Sprintf("http://localhost:%d", port)
 	client, err := waitForAnvil(rpc, 10*time.Second)
 	if err != nil {
 		cmd.Process.Kill()
@@ -48,7 +48,7 @@ func startAnvil(forkURL string, blockNumber uint64, port int) (*AnvilInstance, e
 	return &AnvilInstance{
 		Port:   port,
 		Cmd:    cmd,
-		RPC:    rpc,
+		RPC:    forkUrl,
 		Client: client,
 	}, nil
 }

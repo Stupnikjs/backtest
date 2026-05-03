@@ -63,4 +63,6 @@ $ cast <subcommand>
 $ forge --help
 $ anvil --help
 $ cast --help
+$ forge install morpho-org/morpho-blue
+$ forge install OpenZeppelin/openzeppelin-contracts
 ```

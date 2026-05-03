@@ -42,6 +42,24 @@ type LiquidationData struct {
 	} `json:"market"`
 }
 
+type MarketResponse struct {
+	MarketByUniqueKey Market `json:"marketByUniqueKey"`
+}
+
+type Market struct {
+	LLTV            json.Number `json:"lltv"`
+	OracleAddress   string      `json:"oracleAddress"`
+	IRMAddress      string      `json:"irmAddress"`
+	LoanAsset       Asset       `json:"loanAsset"`
+	CollateralAsset Asset       `json:"collateralAsset"`
+}
+
+type Asset struct {
+	Address  string `json:"address"`
+	Symbol   string `json:"symbol"`
+	Decimals int    `json:"decimals"`
+}
+
 // ── QUERY ────────────────────────────────────────────────────────────────────
 
 func GetLiquidations(ctx context.Context, chainID int, count int) ([]Transaction, error) {
@@ -84,4 +102,33 @@ func GetLiquidations(ctx context.Context, chainID int, count int) ([]Transaction
 		return nil, fmt.Errorf("get liquidations: %w", err)
 	}
 	return out.Transactions.Items, nil
+}
+
+func GetMarketByUniqueKey(ctx context.Context, uniqueKey string, chainID int) (*Market, error) {
+	query := fmt.Sprintf(`{
+		marketByUniqueKey(
+			uniqueKey: "%s"
+			chainId: %d
+		) {
+			lltv
+			oracleAddress
+			irmAddress
+			loanAsset {
+				address
+				symbol
+				decimals
+			}
+			collateralAsset {
+				address
+				symbol
+				decimals
+			}
+		}
+	}`, uniqueKey, chainID)
+
+	var out MarketResponse
+	if err := Query(ctx, query, &out); err != nil {
+		return nil, fmt.Errorf("get market by unique key: %w", err)
+	}
+	return &out.MarketByUniqueKey, nil
 }
