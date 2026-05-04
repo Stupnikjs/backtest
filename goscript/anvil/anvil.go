@@ -39,24 +39,27 @@ func StartAnvil(rpc string, blockNumber uint64, port int) (*AnvilInstance, error
 
 	// Attendre qu'Anvil soit prêt
 	forkUrl := fmt.Sprintf("http://localhost:%d", port)
-	client, err := waitForAnvil(rpc, 10*time.Second)
+	client, err := waitForAnvil(forkUrl, 10*time.Second)
 	if err != nil {
 		cmd.Process.Kill()
 		return nil, err
 	}
-
+	chainid := 42161
+	signer, err := NewAnvilSigner(int64(chainid))
 	return &AnvilInstance{
-		Port:   port,
-		Cmd:    cmd,
-		RPC:    forkUrl,
-		Client: client,
+		Port:    port,
+		Cmd:     cmd,
+		RPC:     forkUrl,
+		Client:  client,
+		Signer:  *signer,
+		Chainid: int64(chainid),
 	}, nil
 }
 
-func waitForAnvil(rpc string, timeout time.Duration) (*w3.Client, error) {
+func waitForAnvil(forkurl string, timeout time.Duration) (*w3.Client, error) {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		client, err := w3.Dial(rpc)
+		client, err := w3.Dial(forkurl)
 		if err == nil {
 			var blockNum *big.Int
 			if err := client.Call(eth.BlockNumber().Returns(&blockNum)); err == nil {

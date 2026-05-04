@@ -15,7 +15,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var ARBUniRouter = common.HexToAddress("0xkopkpo")
+var ARBUniRouter = common.HexToAddress("0xe592427a0aece92de3edee1f18e0157c05861564")
+var MorphoBlueAddr = common.HexToAddress("0x6c247b1F6182318877311737BaC0844bAa518F5e")
 
 /*
 var FuncLiquidate = w3.MustNewFunc(
@@ -43,7 +44,7 @@ type LiquidatePos struct {
 }
 
 func main() {
-	err := godotenv.Load()
+	err := godotenv.Load("../.env")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -53,13 +54,6 @@ func main() {
 		log.Fatal(err)
 	}
 	for i, tx := range liquidations {
-		fmt.Printf("[%d] %s | %s/%s | seized: $%.2f\n",
-			tx.BlockNumber,
-			tx.Hash,
-			tx.Data.Market.CollateralAsset.Symbol,
-			tx.Data.Market.LoanAsset.Symbol,
-			tx.Data.SeizedAssetsUsd,
-		)
 
 		mp, err := api.GetMarketByUniqueKey(ctx, tx.Data.Market.UniqueKey, 8453)
 		if err != nil {
@@ -84,19 +78,16 @@ func main() {
 		if tx.Data.Market.CollateralAsset.Symbol == "USDC" && tx.Data.Market.LoanAsset.Symbol == "WETH" {
 			backtest(uint64(tx.BlockNumber), 8450+i, marketContractParams, pos)
 		} else if tx.Data.Market.CollateralAsset.Symbol == "WETH" && tx.Data.Market.LoanAsset.Symbol == "USDC" {
-
+			backtest(uint64(tx.BlockNumber), 8450+i, marketContractParams, pos)
 		}
 
 	}
 }
 
 func backtest(blockNum uint64, port int, marketParams contract.MarketContractParams, pos LiquidatePos) {
+	ctx := context.Background()
 	rpc := os.Getenv("ARB_RPC")
-	if rpc == "" {
-		fmt.Println("ARB_RPC not set")
-		return
-	}
-
+	fmt.Println("RPC ARB :", rpc)
 	anvilInstance, err := anvil.StartAnvil(rpc, blockNum, port)
 	if err != nil {
 		fmt.Printf("  anvil start failed (block=%d port=%d): %v\n", blockNum, port, err)
@@ -107,6 +98,36 @@ func backtest(blockNum uint64, port int, marketParams contract.MarketContractPar
 	fmt.Printf("  anvil running on port %d for block %d \n", port, blockNum)
 
 	// TODO: deploy/connect contract, call liquidate with marketParams + pos
-	_ = marketParams
-	_ = pos
+	bytecode, err := contract.LoadBytecode("../out/Liquidator.sol/Liquidator.json")
+	if err != nil {
+		fmt.Println(err)
+	}
+	bytecode, err = contract.EncodedBytecodeWithConstructor(bytecode, MorphoBlueAddr)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	liquidatorAddress, err := anvilInstance.DeployContract(ctx, bytecode)
+	if err != nil {
+		fmt.Printf("deploy failed, aborting: %w", err)
+		return
+	}
+	if liquidatorAddress == (common.Address{}) {
+		fmt.Printf("deploy returned zero address, aborting")
+		return
+	}
+
+	args := contract.LiquidateArgs{
+		MarketParams: marketParams,
+		Borrower:     pos.Borrower,
+		SeizedAssets: pos.SeizedAsset,
+		RepaidShares: pos.RepaidShares,
+		SwapRouter:   pos.SwapRouter,
+		PoolFee:      pos.PoolFee,
+		MinOut:       pos.MinOut,
+	}
+
+	err = anvilInstance.LiquidateCall(ctx, args, liquidatorAddress)
+
+	fmt.Println("err after liquidate call", err)
 }

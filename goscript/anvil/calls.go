@@ -3,9 +3,9 @@ package anvil
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"math/big"
-	"os"
 	"strings"
 
 	"github.com/Stupnikjs/backtest/contract"
@@ -29,26 +29,14 @@ type TxParams struct {
 	Value    *big.Int
 }
 
-type LiquidateArgs struct {
-	MarketParams contract.MarketContractParams
-	Borrower     common.Address
-	SeizedAssets *big.Int
-	RepaidShares *big.Int
-	SwapRouter   common.Address
-	PoolFee      *big.Int
-	MinOut       *big.Int
-}
-
 // ── SIGNER ───────────────────────────────────────────────────────────────────
+
+const AnvilPrivateKey0 = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 // AnvilSigner utilise le compte 0 d'Anvil par défaut
 func NewAnvilSigner(chainid int64) (*Signer, error) {
 
-	keyHex := os.Getenv("BASE_PK")
-	if keyHex == "" {
-		return nil, fmt.Errorf("LIQUIDATOR__BASE_PRIVATE_KEY not set")
-	}
-	key, err := crypto.HexToECDSA(strings.TrimPrefix(keyHex, "0x"))
+	key, err := crypto.HexToECDSA(strings.TrimPrefix(AnvilPrivateKey0, "0x"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid private key: %w", err)
 	}
@@ -105,13 +93,13 @@ func (a *AnvilInstance) SendSignedTx(ctx context.Context, params TxParams) (comm
 	if err := a.Client.CallCtx(ctx, eth.SendTx(signedTx).Returns(&txHash)); err != nil {
 		return common.Hash{}, fmt.Errorf("SendSignedTx: send: %w", err)
 	}
-
+	fmt.Println("No error in liquidation")
 	return txHash, nil
 }
 
 // ── LIQUIDATE ────────────────────────────────────────────────────────────────
 
-func (a *AnvilInstance) LiquidateCall(ctx context.Context, args LiquidateArgs, privateKey *ecdsa.PrivateKey, liquidatorAddr common.Address) error {
+func (a *AnvilInstance) LiquidateCall(ctx context.Context, args contract.LiquidateArgs, liquidatorAddr common.Address) error {
 	calldata, err := contract.FuncLiquidate.EncodeArgs(
 		args.MarketParams,
 		args.Borrower,
@@ -134,6 +122,13 @@ func (a *AnvilInstance) LiquidateCall(ctx context.Context, args LiquidateArgs, p
 		return fmt.Errorf("LiquidateCall: %w", err)
 	}
 
+	var receipt *types.Receipt
+	if err := a.Client.CallCtx(ctx, eth.TxReceipt(txHash).Returns(&receipt)); err != nil {
+		return fmt.Errorf("LiquidateCall: receipt: %w", err)
+	}
+	if receipt.Status == types.ReceiptStatusFailed {
+		return fmt.Errorf("LiquidateCall: REVERTED (hash: %s)", txHash.Hex())
+	}
 	fmt.Printf("[liquidate] tx: %s\n", txHash.Hex())
 	return nil
 }
@@ -147,7 +142,10 @@ func (a *AnvilInstance) DeployContract(ctx context.Context, bytecode []byte) (co
 	if err != nil {
 		return common.Address{}, fmt.Errorf("deploy: %w", err)
 	}
-
+	err = a.Mine(ctx)
+	if err != nil {
+		fmt.Println(err)
+	}
 	// Récupérer l'adresse du contrat depuis le receipt
 	var receipt *types.Receipt
 	if err := a.Client.CallCtx(ctx,
@@ -155,6 +153,18 @@ func (a *AnvilInstance) DeployContract(ctx context.Context, bytecode []byte) (co
 	); err != nil {
 		return common.Address{}, fmt.Errorf("deploy receipt: %w", err)
 	}
-
+	if receipt.Status == types.ReceiptStatusFailed {
+		return common.Address{}, fmt.Errorf("SendSignedTx: tx reverted (hash: %s)", txHash.Hex())
+	}
 	return receipt.ContractAddress, nil
+}
+
+func (a *AnvilInstance) Mine(ctx context.Context) error {
+	var result json.RawMessage
+	if err := a.Client.CallCtx(ctx,
+		w3.CallRaw("evm_mine", nil).Returns(&result),
+	); err != nil {
+		return fmt.Errorf("evm_mine: %w", err)
+	}
+	return nil
 }
