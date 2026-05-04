@@ -24,7 +24,7 @@ func TestStartAndStop(t *testing.T) {
 		t.Fatalf("getFreePort: %v", err)
 	}
 
-	instance, err := StartAnvil(os.Getenv("ARB_RPC"), 18000000, port)
+	instance, err := StartAnvil(os.Getenv("ARB_RPC"), 18000000, port, 8453)
 	if err != nil {
 		t.Fatalf("startAnvil: %v", err)
 	}

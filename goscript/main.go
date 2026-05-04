@@ -15,7 +15,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var ARBUniRouter = common.HexToAddress("0xe592427a0aece92de3edee1f18e0157c05861564")
+// var ARBUniRouter = common.HexToAddress("0xe592427a0aece92de3edee1f18e0157c05861564")
+var BaseUniRouter = common.HexToAddress("0x2626664c2603336E57B271c5C0b26F421741e481")
 var MorphoBlueAddr = common.HexToAddress("0x6c247b1F6182318877311737BaC0844bAa518F5e")
 
 /*
@@ -70,7 +71,7 @@ func main() {
 			Borrower:     common.HexToAddress(tx.User.Address),
 			SeizedAsset:  utils.ParseBigInt(tx.Data.SeizedAssets.String()),
 			RepaidShares: big.NewInt(0),
-			SwapRouter:   ARBUniRouter,
+			SwapRouter:   BaseUniRouter,
 			PoolFee:      big.NewInt(100),
 			MinOut:       big.NewInt(0),
 		}
@@ -86,9 +87,9 @@ func main() {
 
 func backtest(blockNum uint64, port int, marketParams contract.MarketContractParams, pos LiquidatePos) {
 	ctx := context.Background()
-	rpc := os.Getenv("ARB_RPC")
-	fmt.Println("RPC ARB :", rpc)
-	anvilInstance, err := anvil.StartAnvil(rpc, blockNum, port)
+	rpc := os.Getenv("BASE_RPC")
+	fmt.Println("RPC BASE :", rpc)
+	anvilInstance, err := anvil.StartAnvil(rpc, blockNum-1, port, 8453)
 	if err != nil {
 		fmt.Printf("  anvil start failed (block=%d port=%d): %v\n", blockNum, port, err)
 		return
@@ -128,6 +129,19 @@ func backtest(blockNum uint64, port int, marketParams contract.MarketContractPar
 	}
 
 	err = anvilInstance.LiquidateCall(ctx, args, liquidatorAddress)
-
-	fmt.Println("err after liquidate call", err)
+	fmt.Println(marketParams.CollateralToken.String())
+	fmt.Println(marketParams.CollateralToken.Hex())
+	collateralBal, err := anvilInstance.BalanceOf(ctx, common.HexToAddress(marketParams.CollateralToken.Hex()), common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"))
+	if err != nil {
+		fmt.Println("collateral balanceOf err:", err)
+	} else {
+		fmt.Printf("collatéral restant: %s\n", collateralBal.String())
+	}
+	loanBal, err := anvilInstance.BalanceOf(ctx,
+		common.HexToAddress(marketParams.LoanToken.Hex()),
+		common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
+	)
+	fmt.Println(liquidatorAddress)
+	fmt.Printf("collatéral restant: %s\n", collateralBal)
+	fmt.Printf("loan token gagné:   %s\n", loanBal)
 }

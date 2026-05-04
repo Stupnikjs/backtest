@@ -3,17 +3,17 @@ package anvil
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/Stupnikjs/backtest/contract"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/lmittmann/w3"
 	"github.com/lmittmann/w3/module/eth"
-	"github.com/lmittmann/w3/w3types"
 )
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
@@ -54,20 +54,10 @@ func (a *AnvilInstance) SendSignedTx(ctx context.Context, params TxParams) (comm
 
 	var nonce uint64
 	var gasPrice *big.Int
-	var gasEst uint64
-
-	msg := w3types.Message{
-		From: sender,
-		// to morphoblue
-		To:    params.To,
-		Input: params.Calldata,
-		Value: params.Value,
-	}
 
 	if err := a.Client.CallCtx(ctx,
 		eth.Nonce(sender, nil).Returns(&nonce),
 		eth.GasPrice().Returns(&gasPrice),
-		eth.EstimateGas(&msg, nil).Returns(&gasEst),
 	); err != nil {
 		return common.Hash{}, fmt.Errorf("SendSignedTx: fetch params: %w", err)
 	}
@@ -77,7 +67,7 @@ func (a *AnvilInstance) SendSignedTx(ctx context.Context, params TxParams) (comm
 		To:        params.To,
 		Data:      params.Calldata,
 		Value:     params.Value,
-		Gas:       gasEst * 12 / 10,
+		Gas:       3_000_000, // hardcodé, assez large pour deploy + liquidation
 		GasTipCap: big.NewInt(1e9),
 		GasFeeCap: new(big.Int).Add(gasPrice, big.NewInt(1e9)),
 	})
@@ -142,29 +132,39 @@ func (a *AnvilInstance) DeployContract(ctx context.Context, bytecode []byte) (co
 	if err != nil {
 		return common.Address{}, fmt.Errorf("deploy: %w", err)
 	}
-	err = a.Mine(ctx)
 	if err != nil {
 		fmt.Println(err)
 	}
 	// Récupérer l'adresse du contrat depuis le receipt
 	var receipt *types.Receipt
-	if err := a.Client.CallCtx(ctx,
-		eth.TxReceipt(txHash).Returns(&receipt),
-	); err != nil {
-		return common.Address{}, fmt.Errorf("deploy receipt: %w", err)
+	for i := 0; i < 10; i++ {
+		err := a.Client.CallCtx(ctx, eth.TxReceipt(txHash).Returns(&receipt))
+		if err == nil && receipt != nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
+
 	if receipt.Status == types.ReceiptStatusFailed {
 		return common.Address{}, fmt.Errorf("SendSignedTx: tx reverted (hash: %s)", txHash.Hex())
+	}
+	if receipt.Status == types.ReceiptStatusSuccessful {
+		fmt.Println("WEE ARE THE CHAMPIONS")
 	}
 	return receipt.ContractAddress, nil
 }
 
-func (a *AnvilInstance) Mine(ctx context.Context) error {
-	var result json.RawMessage
+var funcBalanceOf = w3.MustNewFunc("balanceOf(address)", "uint256")
+
+func (a *AnvilInstance) BalanceOf(ctx context.Context, token common.Address, account common.Address) (*big.Int, error) {
+	var balance *big.Int
+	fmt.Printf("  balanceOf token=%s account=%s\n", token.Hex(), account.Hex())
+
 	if err := a.Client.CallCtx(ctx,
-		w3.CallRaw("evm_mine", nil).Returns(&result),
+		eth.CallFunc(token, funcBalanceOf, account).Returns(&balance),
 	); err != nil {
-		return fmt.Errorf("evm_mine: %w", err)
+		return nil, fmt.Errorf("balanceOf: %w", err)
 	}
-	return nil
+	fmt.Printf("  balance result: %s\n", balance.String())
+	return balance, nil
 }
