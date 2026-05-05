@@ -72,7 +72,7 @@ func main() {
 			SeizedAsset:  utils.ParseBigInt(tx.Data.SeizedAssets.String()),
 			RepaidShares: big.NewInt(0),
 			SwapRouter:   BaseUniRouter,
-			PoolFee:      big.NewInt(100),
+			PoolFee:      big.NewInt(500),
 			MinOut:       big.NewInt(0),
 		}
 		// fork then simulate liquidation with contract
@@ -89,7 +89,7 @@ func backtest(blockNum uint64, port int, marketParams contract.MarketContractPar
 	ctx := context.Background()
 	rpc := os.Getenv("BASE_RPC")
 	fmt.Println("RPC BASE :", rpc)
-	anvilInstance, err := anvil.StartAnvil(rpc, blockNum-1, port, 8453)
+	anvilInstance, err := anvil.StartAnvil(rpc, blockNum, port, 8453)
 	if err != nil {
 		fmt.Printf("  anvil start failed (block=%d port=%d): %v\n", blockNum, port, err)
 		return
@@ -103,6 +103,7 @@ func backtest(blockNum uint64, port int, marketParams contract.MarketContractPar
 	if err != nil {
 		fmt.Println(err)
 	}
+	MorphoBlueAddr = common.HexToAddress("0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb")
 	bytecode, err = contract.EncodedBytecodeWithConstructor(bytecode, MorphoBlueAddr)
 	if err != nil {
 		fmt.Println(err)
@@ -128,20 +129,11 @@ func backtest(blockNum uint64, port int, marketParams contract.MarketContractPar
 		MinOut:       pos.MinOut,
 	}
 
-	err = anvilInstance.LiquidateCall(ctx, args, liquidatorAddress)
-	fmt.Println(marketParams.CollateralToken.String())
-	fmt.Println(marketParams.CollateralToken.Hex())
-	collateralBal, err := anvilInstance.BalanceOf(ctx, common.HexToAddress(marketParams.CollateralToken.Hex()), common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"))
+	tx, err := anvilInstance.LiquidateCall(ctx, args, liquidatorAddress)
+	_ = tx
 	if err != nil {
-		fmt.Println("collateral balanceOf err:", err)
-	} else {
-		fmt.Printf("collatéral restant: %s\n", collateralBal.String())
+		fmt.Printf("liquidate failed: %v\n", err)
+
 	}
-	loanBal, err := anvilInstance.BalanceOf(ctx,
-		common.HexToAddress(marketParams.LoanToken.Hex()),
-		common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
-	)
-	fmt.Println(liquidatorAddress)
-	fmt.Printf("collatéral restant: %s\n", collateralBal)
-	fmt.Printf("loan token gagné:   %s\n", loanBal)
+
 }

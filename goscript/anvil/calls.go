@@ -3,6 +3,7 @@ package anvil
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/lmittmann/w3"
 	"github.com/lmittmann/w3/module/eth"
 )
@@ -89,7 +91,7 @@ func (a *AnvilInstance) SendSignedTx(ctx context.Context, params TxParams) (comm
 
 // ── LIQUIDATE ────────────────────────────────────────────────────────────────
 
-func (a *AnvilInstance) LiquidateCall(ctx context.Context, args contract.LiquidateArgs, liquidatorAddr common.Address) error {
+func (a *AnvilInstance) LiquidateCall(ctx context.Context, args contract.LiquidateArgs, liquidatorAddr common.Address) (common.Hash, error) {
 	calldata, err := contract.FuncLiquidate.EncodeArgs(
 		args.MarketParams,
 		args.Borrower,
@@ -100,7 +102,7 @@ func (a *AnvilInstance) LiquidateCall(ctx context.Context, args contract.Liquida
 		args.MinOut,
 	)
 	if err != nil {
-		return fmt.Errorf("LiquidateCall: encode: %w", err)
+		return common.Hash{}, fmt.Errorf("LiquidateCall: encode: %w", err)
 	}
 
 	txHash, err := a.SendSignedTx(ctx, TxParams{
@@ -109,35 +111,43 @@ func (a *AnvilInstance) LiquidateCall(ctx context.Context, args contract.Liquida
 		Value:    big.NewInt(0),
 	})
 	if err != nil {
-		return fmt.Errorf("LiquidateCall: %w", err)
+		return common.Hash{}, fmt.Errorf("LiquidateCall: %w", err)
 	}
-
+	if err := a.Mine(ctx); err != nil { // ← mine le bloc de la liquidation
+		return common.Hash{}, fmt.Errorf("liquidate: mine: %w", err)
+	}
 	var receipt *types.Receipt
 	if err := a.Client.CallCtx(ctx, eth.TxReceipt(txHash).Returns(&receipt)); err != nil {
-		return fmt.Errorf("LiquidateCall: receipt: %w", err)
+		return common.Hash{}, fmt.Errorf("LiquidateCall: receipt: %w", err)
 	}
 	if receipt.Status == types.ReceiptStatusFailed {
-		return fmt.Errorf("LiquidateCall: REVERTED (hash: %s)", txHash.Hex())
+		trace, err := a.CastRun(txHash)
+		if err != nil {
+			fmt.Printf("cast run failed: %v\n", err)
+		} else {
+			fmt.Println(trace)
+		}
+		return txHash, fmt.Errorf("LiquidateCall: REVERTED (hash: %s)", txHash.Hex())
 	}
 	fmt.Printf("[liquidate] tx: %s\n", txHash.Hex())
-	return nil
+	return txHash, nil
 }
 
 func (a *AnvilInstance) DeployContract(ctx context.Context, bytecode []byte) (common.Address, error) {
 	txHash, err := a.SendSignedTx(ctx, TxParams{
-		To:       nil, // nil = déploiement
+		To:       nil,
 		Calldata: bytecode,
 		Value:    big.NewInt(0),
 	})
 	if err != nil {
 		return common.Address{}, fmt.Errorf("deploy: %w", err)
 	}
-	if err != nil {
-		fmt.Println(err)
+
+	if err := a.Mine(ctx); err != nil { // ← mine le bloc de la liquidation
+		return common.Address{}, fmt.Errorf("liquidate: mine: %w", err)
 	}
-	// Récupérer l'adresse du contrat depuis le receipt
 	var receipt *types.Receipt
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		err := a.Client.CallCtx(ctx, eth.TxReceipt(txHash).Returns(&receipt))
 		if err == nil && receipt != nil {
 			break
@@ -146,11 +156,19 @@ func (a *AnvilInstance) DeployContract(ctx context.Context, bytecode []byte) (co
 	}
 
 	if receipt.Status == types.ReceiptStatusFailed {
-		return common.Address{}, fmt.Errorf("SendSignedTx: tx reverted (hash: %s)", txHash.Hex())
+		return common.Address{}, fmt.Errorf("deploy: tx reverted (hash: %s)", txHash.Hex())
 	}
-	if receipt.Status == types.ReceiptStatusSuccessful {
-		fmt.Println("WEE ARE THE CHAMPIONS")
+
+	// ← vérification getCode
+	var code []byte
+	if err := a.Client.CallCtx(ctx, eth.Code(receipt.ContractAddress, nil).Returns(&code)); err != nil {
+		return common.Address{}, fmt.Errorf("deploy: getCode failed: %w", err)
 	}
+	if len(code) == 0 {
+		return common.Address{}, fmt.Errorf("deploy: no code at %s — deploy silently failed", receipt.ContractAddress.Hex())
+	}
+	fmt.Printf("[deploy] contrat déployé à %s (%d bytes)\n", receipt.ContractAddress.Hex(), len(code))
+
 	return receipt.ContractAddress, nil
 }
 
@@ -167,4 +185,21 @@ func (a *AnvilInstance) BalanceOf(ctx context.Context, token common.Address, acc
 	}
 	fmt.Printf("  balance result: %s\n", balance.String())
 	return balance, nil
+}
+
+func (a *AnvilInstance) TraceTransaction(txHash common.Hash) (json.RawMessage, error) {
+	rpcClient, err := rpc.Dial(a.RPC)
+	if err != nil {
+		return nil, err
+	}
+	defer rpcClient.Close()
+
+	var result json.RawMessage
+	err = rpcClient.Call(&result, "debug_traceTransaction", txHash.Hex(), map[string]string{
+		"tracer": "callTracer",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("traceTransaction: %w", err)
+	}
+	return result, nil
 }

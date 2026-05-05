@@ -55,7 +55,7 @@ func TestMultipleInstances(t *testing.T) {
 			t.Fatalf("getFreePort instance %d: %v", i, err)
 		}
 
-		inst, err := StartAnvil(os.Getenv("ARB_RPC"), 18000000, port)
+		inst, err := StartAnvil(os.Getenv("ARB_RPC"), 18000000, port, 8453)
 		if err != nil {
 			t.Fatalf("startAnvil instance %d: %v", i, err)
 		}
