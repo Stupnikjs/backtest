@@ -88,7 +88,7 @@ contract Liquidator {
         }
     }
 
-    function onMorphoLiquidate(uint256 /*repaidAssets*/, bytes calldata data) external onlyMorpho {
+    function onMorphoLiquidate(uint256 repaidAssets, bytes calldata data) external onlyMorpho {
         LiquidationData memory d = abi.decode(data, (LiquidationData));
 
         address collateral = d.marketParams.collateralToken;
@@ -99,7 +99,7 @@ contract Liquidator {
 
         IERC20(collateral).forceApprove(d.swapRouter, amountIn);
 
-        ISwapRouter(d.swapRouter).exactInputSingle(
+        uint256 amountOut = ISwapRouter(d.swapRouter).exactInputSingle(
             ISwapRouter.ExactInputSingleParams({
                 tokenIn:           collateral,
                 tokenOut:          loanToken,
@@ -110,6 +110,8 @@ contract Liquidator {
                 sqrtPriceLimitX96: 0
             })
         );
+
+        require(amountOut >= repaidAssets, "swap insufficient output");
     }
 
     function sweep(address token) external onlyOwner {
