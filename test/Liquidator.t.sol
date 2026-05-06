@@ -72,7 +72,9 @@ contract LiquidatorTest is Test {
         liquidator.liquidate(mp, borrower, seizedAssets, 0, UNI_ROUTER, poolFee, 0);
 
         uint256 profit = IERC20(loanToken).balanceOf(address(liquidator));
+        uint256 profitColl = IERC20(collateralToken).balanceOf(address(liquidator));
         assertGt(profit, 0, "no profit");
         console.log("profit:", profit);
+        console.log("profitcoll:", profitColl);
     }
 }
