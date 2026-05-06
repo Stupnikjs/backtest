@@ -52,4 +52,99 @@ contract LiquidatorTest is Test {
     assertGt(bal, 0, "no profit");
     console.log("profit WETH:", bal);
 }
+
+
+
+// ─── 1. REVERT CASES ───────────────────────────────────────
+
+    function test_revert_notLiquidatable() public {
+        // Sans mock du prix → position healthy → doit revert
+        vm.expectRevert();
+        liquidator.liquidate(mp, borrower, 8984643, 0, UNI_ROUTER, 500, 0);
+    }
+
+    function test_revert_wrongCaller() public {
+        // Si ton contrat a un onlyOwner ou access control
+        vm.prank(address(0xdead));
+        vm.expectRevert();
+        liquidator.liquidate(mp, borrower, 8984643, 0, UNI_ROUTER, 500, 0);
+    }
+
+    function test_revert_slippageTooHigh() public {
+        _mockPriceDown(10);
+        // amountOutMinimum astronomique → swap revert
+        uint256 impossibleMinOut = type(uint256).max;
+        vm.expectRevert();
+        liquidator.liquidate(mp, borrower, 8984643, impossibleMinOut, UNI_ROUTER, 500, 0);
+    }
+
+    // ─── 2. DIFFÉRENTS MARKETS ─────────────────────────────────
+
+    function test_liquidate_cbBTC_USDC() public {
+        vm.rollFork(SOME_BLOCK);
+        MarketParams memory mp2 = MarketParams({
+            loanToken:       USDC,
+            collateralToken: cbBTC,
+            oracle:          0x...,
+            irm:             IRM,
+            lltv:            860000000000000000
+        });
+        _mockPriceDown(10);
+        liquidator.liquidate(mp2, borrower2, seizedAmount, 0, UNI_ROUTER, 3000, 0);
+        assertGt(IERC20(USDC).balanceOf(address(liquidator)), 0);
+    }
+
+    // ─── 3. FEE TIERS ──────────────────────────────────────────
+
+    function test_liquidate_feeTier_100() public { ... }
+    function test_liquidate_feeTier_500() public { ... }  // ton test actuel
+    function test_liquidate_feeTier_3000() public { ... }
+
+    // ─── 4. EDGE CASES MONTANTS ────────────────────────────────
+
+    function test_liquidate_maxSeizable() public {
+        // seize le max autorisé par Morpho
+        _mockPriceDown(10);
+        liquidator.liquidate(mp, borrower, type(uint256).max, 0, UNI_ROUTER, 500, 0);
+    }
+
+    function test_liquidate_dustAmount() public {
+        // tout petit montant → toujours profitable après gas ?
+        _mockPriceDown(10);
+        liquidator.liquidate(mp, borrower, 1, 0, UNI_ROUTER, 500, 0);
+    }
+
+    // ─── 5. PROFIT ASSERTIONS ──────────────────────────────────
+
+    function test_profit_increases_with_discount() public {
+        uint256 profit10 = _liquidateAndGetProfit(10); // -10%
+        uint256 profit20 = _liquidateAndGetProfit(20); // -20%
+        assertGt(profit20, profit10, "bigger discount = more profit");
+    }
+
+    // ─── 6. RESCUE / ADMIN ─────────────────────────────────────
+
+    function test_rescue_erc20() public {
+        // Si tu as une fonction rescue sur ton contrat
+        deal(USDC, address(liquidator), 1000e6);
+        liquidator.rescue(USDC, owner, 1000e6);
+        assertEq(IERC20(USDC).balanceOf(owner), 1000e6);
+    }
+
+    // ─── HELPERS ───────────────────────────────────────────────
+
+    function _mockPriceDown(uint256 pct) internal {
+        uint256 current = IOracle(mp.oracle).price();
+        vm.mockCall(
+            mp.oracle,
+            abi.encodeWithSignature("price()"),
+            abi.encode(current * (100 - pct) / 100)
+        );
+    }
+
+    function _liquidateAndGetProfit(uint256 pctDown) internal returns (uint256) {
+        _mockPriceDown(pctDown);
+        liquidator.liquidate(mp, borrower, 8984643, 0, UNI_ROUTER, 500, 0);
+        return IERC20(mp.loanToken).balanceOf(address(liquidator));
+    }
 }
