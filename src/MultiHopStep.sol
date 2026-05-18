@@ -147,11 +147,10 @@ contract Liquidator {
             // Patch amountIn dans le calldata au runtime
             bytes memory stepData = step.data;
             if (step.amountInOffset != 0) {
-                assembly {
-                    // store le nouveau amount in a l'offset
-                    mstore(add(stepData, step.amountInOffset), amountIn)
-                }
-            }
+    assembly {
+        mstore(add(add(stepData, 32), step.amountInOffset), amountIn)
+    }
+}
 
             uint256 balBefore = IERC20(step.tokenOut).balanceOf(address(this));
 
