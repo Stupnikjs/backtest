@@ -34,13 +34,6 @@ contract LiquidatorTest is Test {
         vm.createSelectFork(vm.envString("BASE_RPC"));
     }
 
-    // ─────────────────────────────────────────────
-    // Tests
-    // ─────────────────────────────────────────────
-
-    // Marché WETH/USDC — le collatéral est USDC, le loan est WETH
-    // On reçoit du USDC (collat), on doit rembourser du WETH (loan)
-    // => swap USDC → WETH
     function test_WETH_USDC() public {
         address loanToken       = 0x4200000000000000000000000000000000000006; // WETH
         address collateralToken = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913; // USDC
@@ -64,9 +57,7 @@ contract LiquidatorTest is Test {
         });
     }
 
-    // Marché USDC/WETH — le collatéral est WETH, le loan est USDC
-    // On reçoit du WETH (collat), on doit rembourser du USDC (loan)
-    // => swap WETH → USDC
+  
     function test_USDC_WETH() public {
         address loanToken       = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913; // USDC
         address collateralToken = 0x4200000000000000000000000000000000000006; // WETH
