@@ -1,0 +1,101 @@
+[
+  {
+    "TokenIn": "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22",
+    "TokenOut": "0x4200000000000000000000000000000000000006",
+    "Router": "0x3d4e44eb1374240ce5f1b871ab261cd16335b76a",
+    "Fee": 500,
+    "WCSlippage": 0.030879751694219054,
+    "WCAmountIn": 2364165161747496028,
+    "WCAmountOut": 2671645377413494785,
+    "CalibratedAt": "2026-05-19T13:16:37.8834239+02:00",
+    "AmountInOffset": 164
+  },
+  {
+    "TokenIn": "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452",
+    "TokenOut": "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42",
+    "Router": "0x3d4e44eb1374240ce5f1b871ab261cd16335b76a",
+    "Fee": 10000,
+    "WCSlippage": 13.038672657415765,
+    "WCAmountIn": 39247317129517491,
+    "WCAmountOut": 76830911,
+    "CalibratedAt": "2026-05-19T13:17:01.9987679+02:00",
+    "AmountInOffset": 164
+  },
+  {
+    "TokenIn": "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22",
+    "TokenOut": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    "Router": "0x3d4e44eb1374240ce5f1b871ab261cd16335b76a",
+    "Fee": 3000,
+    "WCSlippage": 20.421038897078798,
+    "WCAmountIn": 139664031078085711,
+    "WCAmountOut": 266076915,
+    "CalibratedAt": "2026-05-19T13:17:22.6312057+02:00",
+    "AmountInOffset": 164
+  },
+  {
+    "TokenIn": "0x940181a94a35a4569e4529a3cdfb74e38fd98631",
+    "TokenOut": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    "Router": "0x3d4e44eb1374240ce5f1b871ab261cd16335b76a",
+    "Fee": 500,
+    "WCSlippage": 8.427905121436451,
+    "WCAmountIn": 60041480352683373217461,
+    "WCAmountOut": 22608390787,
+    "CalibratedAt": "2026-05-19T13:19:50.7603408+02:00",
+    "AmountInOffset": 164
+  },
+  {
+    "TokenIn": "0x4200000000000000000000000000000000000006",
+    "TokenOut": "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42",
+    "Router": "0x3d4e44eb1374240ce5f1b871ab261cd16335b76a",
+    "Fee": 3000,
+    "WCSlippage": 7.865048646195802,
+    "WCAmountIn": 2929687500000000,
+    "WCAmountOut": 4921698,
+    "CalibratedAt": "2026-05-19T13:22:08.8966814+02:00",
+    "AmountInOffset": 164
+  },
+  {
+    "TokenIn": "0xcb585250f852c6c6bf90434ab21a00f02833a4af",
+    "TokenOut": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    "Router": "0x3d4e44eb1374240ce5f1b871ab261cd16335b76a",
+    "Fee": 10000,
+    "WCSlippage": 19.417509692045176,
+    "WCAmountIn": 10211015346,
+    "WCAmountOut": 11281887453,
+    "CalibratedAt": "2026-05-19T13:22:32.7473308+02:00",
+    "AmountInOffset": 164
+  },
+  {
+    "TokenIn": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+    "TokenOut": "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42",
+    "Router": "0x3d4e44eb1374240ce5f1b871ab261cd16335b76a",
+    "Fee": 10000,
+    "WCSlippage": 13.609924878236187,
+    "WCAmountIn": 142096,
+    "WCAmountOut": 81329424,
+    "CalibratedAt": "2026-05-19T13:23:38.066332+02:00",
+    "AmountInOffset": 164
+  },
+  {
+    "TokenIn": "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22",
+    "TokenOut": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    "Router": "0x3d4e44eb1374240ce5f1b871ab261cd16335b76a",
+    "Fee": 3000,
+    "WCSlippage": 13.77163041621306,
+    "WCAmountIn": 122070312500000000,
+    "WCAmountOut": 252204557,
+    "CalibratedAt": "2026-05-19T13:24:50.8906123+02:00",
+    "AmountInOffset": 164
+  },
+  {
+    "TokenIn": "0xecac9c5f704e954931349da37f60e39f515c11c1",
+    "TokenOut": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+    "Router": "0x3d4e44eb1374240ce5f1b871ab261cd16335b76a",
+    "Fee": 100,
+    "WCSlippage": 7.99462546187437,
+    "WCAmountIn": 2966,
+    "WCAmountOut": 2739,
+    "CalibratedAt": "2026-05-19T13:25:14.5284985+02:00",
+    "AmountInOffset": 164
+  }
+]
