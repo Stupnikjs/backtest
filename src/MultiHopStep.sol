@@ -146,9 +146,10 @@ contract Liquidator {
 
             // Patch amountIn dans le calldata au runtime
             bytes memory stepData = step.data;
-            if (step.amountInOffset != 0) {
+            uint256 offset = step.amountInOffset; 
+            if (offset != 0) {
     assembly {
-        mstore(add(add(stepData, 32), step.amountInOffset), amountIn)
+        mstore(add(add(stepData, 32), offset), amountIn)
     }
 }
 
