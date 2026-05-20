@@ -5,6 +5,8 @@ import "forge-std/Test.sol";
 import "../src/MultiHopStep.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {MarketParams} from "morpho-blue/src/interfaces/IMorpho.sol";
+import {Id, Position} from "morpho-blue/src/interfaces/IMorpho.sol";
+
 
 interface IOracle {
     function price() external view returns (uint256);
@@ -51,14 +53,14 @@ contract LiquidatorMultiHopTest is Test {
         steps[0] = _buildStep(WETH, USDC, 500);
 
         _liquidate({
-            blockNum:        45433873,
+            blockNum:        46170688,  // block n-1
             loanToken:       USDC,
             collateralToken: WETH,
-            oracle:          0xD09048c8B568Dbf5f189302beA26c9edABFC4858,
+            oracle:          0xFEa2D58cEfCb9fcb597723c6bAE66fFE4193aFE4,
             irm:             0x46415998764C29aB2a25CbeA6254146D50D22687,
             lltv:            860000000000000000,
-            borrower:        0x924D53C12e04B7F74D97c9770889502D7aecc95e,
-            seizedAssets:    8984643,
+            borrower:        0x33B8F8Ee093F64eEC64eF619C1C291D89b1fc4C4,
+            seizedAssets:    32887891089030540,
             steps:           steps
         });
     }
@@ -75,14 +77,14 @@ contract LiquidatorMultiHopTest is Test {
         steps[1] = _buildStep(WETH,  USDC, 500);
 
         _liquidate({
-            blockNum:        45433873,
+            blockNum:        46066882,
             loanToken:       USDC,
             collateralToken: cbETH,
-            oracle:          0xD09048c8B568Dbf5f189302beA26c9edABFC4858,
+            oracle:          0xb40d93F44411D8C09aD17d7F88195eF9b05cCD96,
             irm:             0x46415998764C29aB2a25CbeA6254146D50D22687,
             lltv:            860000000000000000,
-            borrower:        0x924D53C12e04B7F74D97c9770889502D7aecc95e,
-            seizedAssets:    1e18,
+            borrower:        0x65A72471F4159B359f9fC5de946ed7Ac3b411618,
+            seizedAssets:    1038472279785147941,
             steps:           steps
         });
     }
@@ -93,23 +95,7 @@ contract LiquidatorMultiHopTest is Test {
     // Marché : loan=USDC, collateral=cbBTC
     // cbBTC→WETH (fee 3000) puis WETH→USDC (fee 500)
     // ─────────────────────────────────────────────────────────────────────────
-    function test_2hop_cbBTC_WETH_USDC() public {
-        Liquidator.SwapStep[] memory steps = new Liquidator.SwapStep[](2);
-        steps[0] = _buildStep(cbBTC, WETH, 3000);
-        steps[1] = _buildStep(WETH,  USDC, 500);
-
-        _liquidate({
-            blockNum:        45433873,
-            loanToken:       USDC,
-            collateralToken: cbBTC,
-            oracle:          0xD09048c8B568Dbf5f189302beA26c9edABFC4858,
-            irm:             0x46415998764C29aB2a25CbeA6254146D50D22687,
-            lltv:            860000000000000000,
-            borrower:        0x924D53C12e04B7F74D97c9770889502D7aecc95e,
-            seizedAssets:    142096,
-            steps:           steps
-        });
-    }
+   
 
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers
@@ -125,6 +111,7 @@ contract LiquidatorMultiHopTest is Test {
     ///   +132  amountIn         slot 4  ← amountInOffset = 132
     ///   +164  amountOutMinimum slot 5
     ///   +196  sqrtPriceLimitX96 slot 6
+
     function _buildStep(
         address tokenIn,
         address tokenOut,
@@ -164,6 +151,10 @@ contract LiquidatorMultiHopTest is Test {
         Liquidator.SwapStep[] memory steps
     ) internal {
         vm.rollFork(blockNum);
+        
+        uint256 price = IOracle(oracle).price();
+        vm.mockCall(oracle, abi.encodeWithSignature("price()"), abi.encode(price * 70 / 100));
+
 
         Liquidator liquidator = new Liquidator(MORPHO);
         liquidator.setTarget(ROUTER, true);
@@ -186,9 +177,11 @@ contract LiquidatorMultiHopTest is Test {
             lltv:            lltv
         });
 
-        uint256 price = IOracle(oracle).price();
-        vm.mockCall(oracle, abi.encodeWithSignature("price()"), abi.encode(price * 90 / 100));
-
+        Id mId = MarketParamsLib.id(mp);
+        Position memory p = IMorpho(MORPHO).position(mId, borrower);
+        console.log("collShares :", p.collateral);
+        console.log("borrowShares:",p.borrowShares);
+    
         liquidator.liquidate(mp, borrower, seizedAssets, 0, steps, 0);
 
         uint256 profit     = IERC20(loanToken).balanceOf(address(liquidator));
