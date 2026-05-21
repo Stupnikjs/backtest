@@ -23,31 +23,26 @@ interface ISwapRouter {
         uint160 sqrtPriceLimitX96;
     }
    
-      function exactInputSingle(ExactInputSingleParams calldata params)
+    function exactInputSingle(ExactInputSingleParams calldata params)
         external returns (uint256 amountOut);
 
-struct Route {
-        address from;
-        address to;
-        bool stable;
-        address factory;
+}
+
+interface IPancakeRouter {
+
+struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        address recipient;
+        uint256 deadline;       // Slot 4 (offset 132)
+        uint256 amountIn;       // Slot 5 (offset 164) <-- BON ORDRE CONFORME AU ROUTEUR
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
     }
 
-        struct SwapExactTokensForTokensParams {
-            uint256 amountIn;
-            uint256 amountOutMin;
-            Route[] routes;
-            address to;
-            uint256 deadline;
-        }
-    function swapExactTokensForTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        Route[] calldata routes,
-        address to,
-        uint256 deadline
-    ) external returns (uint256[] memory amounts);
-
+    function exactInputSingle(ExactInputSingleParams calldata params)
+        external returns (uint256 amountOut);
    
   
 }
@@ -59,7 +54,7 @@ contract LiquidatorMultiHopTest is Test {
     address constant UNIROUTER = 0x2626664c2603336E57B271c5C0b26F421741e481;
     address constant AEROROUTER = 0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43;
     address constant SLIPSTREAM_ROUTER = 0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5;
-    address constant PANROUTER = 0x1B8513744261E0F3c962A728599347a0D9F96C8d;
+    address constant PANROUTER = 0x1b81D678ffb9C0263b24A97847620C99d213eB14;
     // QuoterV2 UniV3 — NE PAS utiliser ici, c'est read-only
     // address constant QUOTER = 0x3d4e44eb1374240ce5f1b871ab261cd16335b76a;
 
@@ -118,21 +113,29 @@ contract LiquidatorMultiHopTest is Test {
         });
     }
 
-     function test_1hop_pankake_cbETH_USDC() public {
-        // Call PancakeSwap's Quoter contract directly in your test
 
+
+
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1-hop : WETH → USDC  (contrôle — reprend le test d'origine)
+    // ─────────────────────────────────────────────────────────────────────────
+    function test_1hop_pancake_WETH_USDC() public {
+        
+     
         Liquidator.SwapStep[] memory steps = new Liquidator.SwapStep[](1);
-        steps[0] = _buildPanStep(cbETH,  USDC, 100);
+        steps[0] = _buildPanStep(WETH,  USDC, 100);
 
         _liquidate({
-            blockNum:        46170694,
+            blockNum:        46170688,  // block n-1
             loanToken:       USDC,
-            collateralToken: cbETH,
-            oracle:          0x97FF9CbD7E77348b2B8FfBB883bF29452aD18295,
+            collateralToken: WETH,
+            oracle:          0xFEa2D58cEfCb9fcb597723c6bAE66fFE4193aFE4,
             irm:             0x46415998764C29aB2a25CbeA6254146D50D22687,
-            lltv:            770000000000000000,
-            borrower:        0x1674DE8a1c8208f8f1185cd80030B54Ee741DeEb,
-            seizedAssets:    8881540695283522,
+            lltv:            860000000000000000,
+            borrower:        0x33B8F8Ee093F64eEC64eF619C1C291D89b1fc4C4,
+            seizedAssets:    32887891089030540,
             steps:           steps
         });
     }
@@ -194,31 +197,33 @@ contract LiquidatorMultiHopTest is Test {
 
 
 function _buildPanStep(
-        address tokenIn,
-        address tokenOut,
-        uint24  fee
-    ) internal pure returns (Liquidator.SwapStep memory) {
-        bytes memory data = abi.encodeCall(
-            ISwapRouter.exactInputSingle,
-            ISwapRouter.ExactInputSingleParams({
+    address tokenIn,
+    address tokenOut,
+    uint24  fee
+) internal view returns (Liquidator.SwapStep memory) { // Changé en 'view' pour utiliser block.timestamp
+    bytes memory data = abi.encodeCall(
+        IPancakeRouter.exactInputSingle,
+        IPancakeRouter.ExactInputSingleParams({
                 tokenIn:           tokenIn,
                 tokenOut:          tokenOut,
                 fee:               fee,
-                recipient:         address(0), // patché dans _liquidate
-                amountIn:          0,          // patché au runtime par le contrat
+                recipient:         address(0),
+                deadline:          block.timestamp,
+                amountIn:          0,
                 amountOutMinimum:  0,
                 sqrtPriceLimitX96: 0
             })
-        );
+    );
 
-        return Liquidator.SwapStep({
-            target:         PANROUTER,
+
+    return Liquidator.SwapStep({
+        target:         PANROUTER,
             data:           data,
             tokenIn:        tokenIn,
             tokenOut:       tokenOut,
-            amountInOffset: 132  // 4 + 4*32
-        });
-    }
+            amountInOffset: 164 // 4 + 4*32
+    });
+}
     // layout après sélecteur :
     // +4   tokenIn      slot0
     // +36  tokenOut     slot1
@@ -249,17 +254,20 @@ function _buildPanStep(
 
         Liquidator liquidator = new Liquidator(MORPHO);
         liquidator.setTarget(UNIROUTER, true);
-    liquidator.setTarget(PANROUTER, true);
+        liquidator.setTarget(PANROUTER, true);
    
         // Patch recipient (slot 3, offset 100) dans chaque step
-        for (uint256 i = 0; i < steps.length; i++) {
-            bytes memory d   = steps[i].data;
-            address      liq = address(liquidator);
-            assembly {
-                mstore(add(add(d, 32), 100), liq)
-            }
-            steps[i].data = d;
-        }
+        // Patch recipient (slot 4 : octets 100 à 132) sans déborder
+for (uint256 i = 0; i < steps.length; i++) {
+    bytes memory d   = steps[i].data;
+    address      liq = address(liquidator);
+    assembly {
+        // En Solidity, les adresses sont alignées à droite dans un mot de 32 octets.
+        // Écrire directement à l'offset 100 écrit les 32 octets du slot 4 proprement.
+        mstore(add(add(d, 32), 100), liq)
+    }
+    steps[i].data = d;
+}
 
         MarketParams memory mp = MarketParams({
             loanToken:       loanToken,
