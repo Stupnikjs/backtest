@@ -7,7 +7,7 @@ import {MorphoLib} from "morpho-blue/src/libraries/periphery/MorphoLib.sol";
 import {MarketParamsLib} from "morpho-blue/src/libraries/MarketParamsLib.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-contract Liquidator {
+contract LiquidatorMulti {
     using SafeERC20 for IERC20;
     using MarketParamsLib for MarketParams;
     using MorphoLib for IMorpho;
