@@ -119,6 +119,7 @@ contract LiquidatorMulti {
         _inLiquidation = true;
         try MORPHO.liquidate(marketParams, borrower, seizedAssets, repaidShares, callbackData) {
             _inLiquidation = false;
+        // pour reset _inLiquidation
         } catch (bytes memory err) {
             _inLiquidation = false;
             assembly { revert(add(err, 32), mload(err)) }
@@ -129,7 +130,9 @@ contract LiquidatorMulti {
     // Morpho callback
     // ─────────────────────────────────────────────
 
+    // repaid asset est le montant en loan a rembourser (calculer en fonction de seizedAsset pour liquidation partielle) 
     function onMorphoLiquidate(uint256 repaidAssets, bytes calldata data) external onlyMorpho {
+        // decode que ce qui viens de abi.encode
         LiquidationData memory d = abi.decode(data, (LiquidationData));
 
         uint256 len = d.steps.length;
