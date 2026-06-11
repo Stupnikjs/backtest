@@ -7,7 +7,7 @@ import {MorphoLib} from "morpho-blue/src/libraries/periphery/MorphoLib.sol";
 import {MarketParamsLib} from "morpho-blue/src/libraries/MarketParamsLib.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-contract LiquidatorMulti {
+contract Liquidator {
     using SafeERC20 for IERC20;
     using MarketParamsLib for MarketParams;
     using MorphoLib for IMorpho;
@@ -24,7 +24,6 @@ contract LiquidatorMulti {
     error StepZeroInput(uint256 stepIndex);
     error StepZeroOutput(uint256 stepIndex);
     error StepCallFailed(uint256 stepIndex);
-    error TargetNotAllowed(address target);
     error InsufficientToRepay(uint256 amountOut, uint256 repaidAssets);
     error BelowMinOut(uint256 amountOut, uint256 minOut);
 
@@ -54,8 +53,6 @@ contract LiquidatorMulti {
     address public immutable owner;
     bool    private _inLiquidation;
 
-    mapping(address => bool) public allowedTargets;
-
     // ─────────────────────────────────────────────
     // Modifiers
     // ─────────────────────────────────────────────
@@ -84,15 +81,15 @@ contract LiquidatorMulti {
     // Admin
     // ─────────────────────────────────────────────
 
-    function setTarget(address target, bool allowed) external onlyOwner {
-        allowedTargets[target] = allowed;
-    }
 
     function sweep(address token) external onlyOwner {
         uint256 bal = IERC20(token).balanceOf(address(this));
         IERC20(token).safeTransfer(owner, bal);
     }
 
+    function sweepETH() external onlyOwner {
+         payable(owner).transfer(address(this).balance);
+    }
     // ─────────────────────────────────────────────
     // Liquidation
     // ─────────────────────────────────────────────
@@ -119,9 +116,11 @@ contract LiquidatorMulti {
         _inLiquidation = true;
         try MORPHO.liquidate(marketParams, borrower, seizedAssets, repaidShares, callbackData) {
             _inLiquidation = false;
+            IERC20(marketParams.loanToken).forceApprove(address(MORPHO), 0);
         // pour reset _inLiquidation
         } catch (bytes memory err) {
             _inLiquidation = false;
+            IERC20(marketParams.loanToken).forceApprove(address(MORPHO), 0);
             assembly { revert(add(err, 32), mload(err)) }
         }
     }
@@ -139,8 +138,6 @@ contract LiquidatorMulti {
 
         for (uint256 i = 0; i < len; i++) {
             SwapStep memory step = d.steps[i];
-
-            if (!allowedTargets[step.target]) revert TargetNotAllowed(step.target);
 
             uint256 amountIn = IERC20(step.tokenIn).balanceOf(address(this));
             if (amountIn == 0) revert StepZeroInput(i);

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/MultiHopStep.sol";
+import "../src/LiquidatorMulti.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {MarketParams} from "morpho-blue/src/interfaces/IMorpho.sol";
 
