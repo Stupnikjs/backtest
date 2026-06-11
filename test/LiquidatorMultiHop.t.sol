@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/LiquidatorMulti.sol";
+import "../src/Liquidator.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {MarketParams} from "morpho-blue/src/interfaces/IMorpho.sol";
 
@@ -162,8 +162,7 @@ contract LiquidatorTest is Test {
 
         Liquidator liquidator = new Liquidator(MORPHO);
 
-        // Autoriser le router
-        liquidator.setTarget(UNI_ROUTER, true);
+    
 
         // Patcher le recipient dans le calldata de chaque step
         // recipient est au slot 3 (0-indexed) après le selector : offset = 4 + 3*32 = 100

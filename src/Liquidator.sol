@@ -3,19 +3,19 @@ pragma solidity ^0.8.20;
 
 import {IMorpho, MarketParams} from "morpho-blue/src/interfaces/IMorpho.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {MorphoLib} from "morpho-blue/src/libraries/periphery/MorphoLib.sol";
 import {MarketParamsLib} from "morpho-blue/src/libraries/MarketParamsLib.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 contract Liquidator {
     using SafeERC20 for IERC20;
     using MarketParamsLib for MarketParams;
-    using MorphoLib for IMorpho;
+
 
     // ─────────────────────────────────────────────
     // Errors
     // ─────────────────────────────────────────────
 
+    error ETHTransferFailed();
     error NotOwner();
     error NotMorpho();
     error NotInLiquidation();
@@ -88,7 +88,8 @@ contract Liquidator {
     }
 
     function sweepETH() external onlyOwner {
-         payable(owner).transfer(address(this).balance);
+    (bool ok, ) = payable(owner).call{value: address(this).balance}("");
+     if (!ok) revert ETHTransferFailed();
     }
     // ─────────────────────────────────────────────
     // Liquidation
